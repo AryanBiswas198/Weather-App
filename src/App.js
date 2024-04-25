@@ -1,9 +1,9 @@
-// App.js
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 
 function App() {
   const [weatherData, setWeatherData] = useState(null);
+  const [forecastData, setForecastData] = useState(null);
   const [location, setLocation] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -11,6 +11,7 @@ function App() {
   useEffect(() => {
     if (localStorage.getItem("location")) {
       fetchWeather(localStorage.getItem("location"));
+      fetchForecast(localStorage.getItem("location"));
     }
   }, []);
 
@@ -39,6 +40,27 @@ function App() {
     }
   };
 
+  const fetchForecast = async (location) => {
+    try {
+      let response;
+      if (typeof location === "string") {
+        response = await axios.get(
+          `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(
+            location
+          )}&appid=3ec25b1219869d9ac5659474d83bb154&units=metric`
+        );
+      } else {
+        const { latitude, longitude } = location;
+        response = await axios.get(
+          `https://api.openweathermap.org/data/2.5/forecast?lat=${latitude}&lon=${longitude}&appid=3ec25b1219869d9ac5659474d83bb154&units=metric`
+        );
+      }
+      setForecastData(response.data);
+    } catch (error) {
+      console.error("Error fetching forecast data: ", error.response);
+    }
+  };
+
   const handleLocationChange = (event) => {
     setLocation(event.target.value);
   };
@@ -46,12 +68,14 @@ function App() {
   const handleLocationSubmit = () => {
     localStorage.setItem("location", location);
     fetchWeather(location);
+    fetchForecast(location);
   };
 
   const handleAllowLocation = () => {
     navigator.geolocation.getCurrentPosition((position) => {
       const { latitude, longitude } = position.coords;
       fetchWeather({ latitude, longitude });
+      fetchForecast({ latitude, longitude });
     });
   };
 
@@ -82,15 +106,48 @@ function App() {
             </button>
           </div>
         </div>
-        {loading && <p className="text-center font-semibold text-3xl">Loading...</p>}
+        {loading && (
+          <p className="text-center font-semibold text-3xl">Loading...</p>
+        )}
         {error && <p>{error}</p>}
         {weatherData && (
           <div className="mt-4 flex flex-col justify-center items-center text-center py-10">
             <h2 className="text-3xl my-4 font-semibold">
               Weather in {weatherData.name}, {weatherData.sys.country}
             </h2>
+            <img
+              src={`http://openweathermap.org/img/wn/${weatherData.weather[0].icon}.png`}
+              alt="Weather Icon"
+            />
             <p className="text-2xl my-2">{weatherData.main.temp}°C</p>
             <p className="text-2xl">{weatherData.weather[0].description}</p>
+            <p>Visibility: {weatherData.visibility} meters</p>
+            <p>Humidity: {weatherData.main.humidity}%</p>
+            <p>Wind: {weatherData.wind.speed} m/s</p>
+            <p>Feels Like: {weatherData.main.feels_like}°C</p>
+          </div>
+        )}
+
+        {forecastData && (
+          <div className="mt-8">
+            <h2 className="text-2xl font-semibold mb-4">
+              Next 7 days forecast:
+            </h2>
+            <div className="grid grid-cols-7 gap-4">
+              {forecastData.list
+                .filter((item, index) => index % 8 === 0)
+                .map((item, index) => (
+                  <div key={index} className="text-center">
+                    <p>{new Date(item.dt * 1000).toLocaleDateString()}</p>
+                    <img
+                      src={`http://openweathermap.org/img/wn/${item.weather[0].icon}.png`}
+                      alt="Weather Icon"
+                    />
+                    <p>{item.weather[0].description}</p>
+                    <p>{item.main.temp}°C</p>
+                  </div>
+                ))}
+            </div>
           </div>
         )}
       </div>
